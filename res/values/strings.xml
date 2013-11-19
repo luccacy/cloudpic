@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">cloudcam</string>
+    <string name="action_settings">Settings</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="arc_hf_btnBrowse">浏览</string>
+    <string name="arc_hf_btnCamera">拍照</string>
+    <string name="btnVideo">拍照/录像</string>
+    <string name="btnVideoBrowse">浏览录像</string>
+    <string name="arc_hf_file_rename">输入新名字</string>
+    <string name="arc_hf_btnVpn">VPN</string>
+
+</resources>

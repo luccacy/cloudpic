@@ -1,0 +1,70 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity" >
+
+    <FrameLayout
+        android:id="@+id/camera_preview"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+
+    />
+
+    <ImageButton
+        android:id="@+id/take_photo"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+
+        android:scaleType="fitCenter"
+        android:contentDescription="@string/take_photo"
+        android:src="@drawable/off" 
+        android:onClick="onClickedRecordVideo"
+        android:layout_alignRight="@+id/camera_preview"
+        android:layout_centerInParent="true"
+        />
+
+            <ImageButton
+            android:id="@+id/setting"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/setting"
+            android:onClick="onClickedSetting"
+            android:layout_alignRight="@+id/camera_preview"
+            android:layout_alignTop="@+id/camera_preview"
+             />
+            
+            <ImageButton
+            android:id="@+id/autofocus"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/autofocus"
+            android:onClick="onClickedAutoFocus"
+            android:layout_alignRight="@+id/camera_preview"
+            android:layout_below="@+id/setting"
+             />
+            
+            <ImageButton
+            android:id="@+id/videoshow"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/gallery"
+            android:onClick="onClickedVideoShow"
+            android:layout_alignRight="@+id/camera_preview"
+            android:layout_below="@+id/take_photo"
+             />
+            
+            <ImageButton
+            android:id="@+id/imageButton3"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/trash"
+            android:layout_alignRight="@+id/camera_preview"
+            android:layout_below="@+id/videoshow"
+            />
+
+</RelativeLayout>
