@@ -10,5 +10,6 @@
     <string name="btnVideoBrowse">浏览录像</string>
     <string name="arc_hf_file_rename">输入新名字</string>
     <string name="arc_hf_btnVpn">VPN</string>
+    <string name="sensorname">传感器</string>
 
 </resources>

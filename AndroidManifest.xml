@@ -20,17 +20,22 @@
     
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/ic_launcher1"
         android:label="@string/app_name"
-        android:theme="@style/AppTheme" >
+        android:theme="@style/AppTheme"
+        android:largeHeap="true" >
         <activity
             android:name="com.cloud.cam.MainActivity"
-            android:label="@string/app_name"
-            android:screenOrientation="landscape" >
+            android:label="@string/app_name" 
+            android:screenOrientation="landscape"
+			>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity android:name=".FileShow" 
+            android:screenOrientation="landscape">
         </activity>
     </application>
 

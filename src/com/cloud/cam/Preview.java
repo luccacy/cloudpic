@@ -1,16 +1,23 @@
 package com.cloud.cam;
 
+import java.io.BufferedWriter;
+import java.util.Queue;
+import java.util.LinkedList;
+import java.util.Map;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+
 import android.app.Activity;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ImageFormat;
@@ -18,6 +25,8 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
+import android.hardware.Camera.ShutterCallback;
 import android.hardware.Camera.Size;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -26,7 +35,6 @@ import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -34,19 +42,60 @@ import android.view.View;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
-public class Preview extends SurfaceView implements SurfaceHolder.Callback,SensorEventListener {
+public class Preview extends SurfaceView implements SurfaceHolder.Callback,SensorEventListener{
 	private static String TAG = "Preview";
 	private SurfaceHolder mHolder;
 	private Camera mCamera;
 	private MediaRecorder mMediaRecorder;
 	private boolean isPreview;
-	private boolean isRecording = false;
+	public boolean isRecording = false;
+	public boolean isSavingPreview = false;
 	private Paint paint = new Paint();
+	
+	private File sensorFile = null;
 
-	private float a_x;
-	private float a_y;
-	private float a_z;
+	public float accelerometer_x;
+	public float accelerometer_y;
+	public float accelerometer_z;
+	private static int acc_n=1;
+	
+	public float gravity_x;
+	public float gravity_y;
+	public float gravity_z;
+	
+	public float gyroscope_x;
+	public float gyroscope_y;
+	public float gyroscope_z;
 		
+	public float magnetic_x;
+	public float magnetic_y;
+	public float magnetic_z;
+	
+	public float linear_acceleration_x;
+	public float linear_acceleration_y;
+	public float linear_acceleration_z;
+	
+	public float orientation_x;
+	public float orientation_y;
+	public float orientation_z;
+	
+	public float ungyroscope_x;
+	public float ungyroscope_y;
+	public float ungyroscope_z;
+	
+	public float unmagnetic_x;
+	public float unmagnetic_y;
+	public float unmagnetic_z;
+	
+	public float rotation_x;
+	public float rotation_y;
+	public float rotation_z;
+	
+	public float gamerotation_x;
+	public float gamerotation_y;
+	public float gamerotation_z;
+	
+	
 	public Preview(Context context, Bundle savedInstanceState) {
 		super(context);
 		mCamera = Camera.open();
@@ -58,11 +107,33 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		// deprecated setting, but required on Android versions prior to 3.0
 		mHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 	}
+	
+	public void savePreviewAndSensors(){
+		if(isRecording){
+			return;
+		}
+		Activity activity = (Activity)this.getContext();
+		ImageButton view = (ImageButton)activity.findViewById(R.id.save_preview);
+		
+		if(!isSavingPreview){
+			
+			isSavingPreview = true;
+			view.setImageResource(isSavingPreview ? R.drawable.saving : R.drawable.gallery);		
+		}else{
+			isSavingPreview = false;
+			view.setImageResource(isSavingPreview ? R.drawable.saving : R.drawable.gallery);	
+		}
+	}
 
 	public void videoRecorder() {
+		if(isSavingPreview){
+			return;
+		}
+		
 		if (!isRecording) {
 			if (isPreview) {
 				if (mCamera != null) {
+					mCamera.setPreviewCallback(null);
 					mCamera.stopPreview();
 					mCamera.release();
 					mCamera = null;
@@ -70,19 +141,23 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 			}
 			
 			Activity activity = (Activity)this.getContext();
-			ImageButton view = (ImageButton)activity.findViewById(R.id.take_photo);
+			ImageButton view = (ImageButton)activity.findViewById(R.id.record_video);
 			view.setImageResource(isRecording ? R.drawable.off : R.drawable.on);
 
 			if (mMediaRecorder == null)
 				mMediaRecorder = new MediaRecorder();
 			else
 				mMediaRecorder.reset();
+			
+			MainActivity main_activity = (MainActivity)Preview.this.getContext();
+			File videoFile = main_activity.getOutputMediaFile(main_activity.MEDIA_TYPE_VIDEO);
+			String videoName = videoFile.getAbsolutePath();
 
 			mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
 			mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 			mMediaRecorder.setProfile(CamcorderProfile
 					.get(CamcorderProfile.QUALITY_HIGH));
-			mMediaRecorder.setOutputFile("/sdcard/DCIM/test.mp4");
+			mMediaRecorder.setOutputFile(videoName);
 			mMediaRecorder.setPreviewDisplay(mHolder.getSurface());
 
 			try {
@@ -103,7 +178,7 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 			isRecording = true;
 		} else {
 			Activity activity = (Activity)this.getContext();
-			ImageButton view = (ImageButton)activity.findViewById(R.id.take_photo);
+			ImageButton view = (ImageButton)activity.findViewById(R.id.record_video);
 			view.setImageResource(isRecording ? R.drawable.off : R.drawable.on);
 			
 			mMediaRecorder.stop();
@@ -113,7 +188,8 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 			try {
 				mCamera = Camera.open();
 				mCamera.setPreviewDisplay(mHolder);
-//				mCamera.setPreviewCallback(new StreamIt(isRecording));
+				MainActivity main_activity = (MainActivity)Preview.this.getContext();
+				mCamera.setPreviewCallback(new StreamIt(main_activity, Preview.this));
 				mCamera.startPreview();
 				isPreview = true;
 			} catch (Exception e) {
@@ -138,9 +214,54 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		final float scale = getResources().getDisplayMetrics().density;
 		paint.setTextSize(14 * scale + 0.5f); // convert dps to pixels
 		paint.setTextAlign(Paint.Align.CENTER);
+		String sensor_values = null;
 		
-		canvas.drawText("x:" + a_x + "y:" + a_y + "z:" +a_z, canvas.getWidth() / 2,
-				canvas.getHeight() / 3, paint);
+		MainActivity main_activity = (MainActivity)Preview.this.getContext();
+		if(main_activity.settingWindow.chosenSensorType == 1){
+			sensor_values =  "gyroscope("+gyroscope_x+", "+gyroscope_y+", "+gyroscope_z+")";
+		}else if(main_activity.settingWindow.chosenSensorType == 2){
+			sensor_values = "accelerometer("+accelerometer_x+", "+accelerometer_y+", "+accelerometer_z+")";		
+		}else if(main_activity.settingWindow.chosenSensorType == 3){
+			sensor_values = "gravity("+gravity_x+", "+gravity_y+", "+gravity_z+")";
+			
+		}else if(main_activity.settingWindow.chosenSensorType == 4){
+			sensor_values = "magnetic("+magnetic_x+", "+magnetic_y+", "+magnetic_z+")";
+			
+		}else if(main_activity.settingWindow.chosenSensorType == 7){
+			sensor_values = "linear_acceleration("+linear_acceleration_x+", "+linear_acceleration_y+", "+linear_acceleration_z+")";
+			
+		}else if(main_activity.settingWindow.chosenSensorType == 5){
+			sensor_values = "rotation("+rotation_x+", "+rotation_y+", "+rotation_z+")";
+			
+		}else if(main_activity.settingWindow.chosenSensorType == 6){
+			sensor_values = "orientation("+orientation_x+", "+orientation_y+", "+orientation_z+")";
+			
+		}else{
+			sensor_values = "invalid sensor type";
+		}
+		
+		canvas.drawText(sensor_values, canvas.getWidth() / 2,
+				canvas.getHeight() / 5, paint);
+		
+		//draw line
+//		if(main_activity.settingWindow.chosenSensorType == 2){
+//			canvas.drawLine(100, 400, 700, 400, paint);
+//			canvas.drawLine(400,100, 400, 700,paint);
+//			
+//			int i = 0;
+//			int startx = 100 ;
+//			int starty = ((int)(150 * (this.acc_queue.peek().x/9.8)) + 400);
+//			for(Acc acc: this.acc_queue){
+//				int endx = 100 + i;
+//				int endy = ((int)(150 * (acc.x / 9.8)) + 400);
+//				//int endy = (int)(150 * (acc.x / 9.8)) + 400;
+		
+//				canvas.drawLine(startx, starty, endx, endy, paint);
+//				startx = endx;
+//				starty = endy;
+//				i++;
+//			}
+//		}
 
 		canvas.restore();
 	}
@@ -148,17 +269,18 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 	public void surfaceCreated(SurfaceHolder holder) {
 		// The Surface has been created, now tell the camera where to draw the
 		// preview.
-		try {
-			Log.e(TAG, "=====1======");
+		try {			
 			if(holder == null){
 				Log.e(TAG, "===null holder===");
 			}
 			
 			mCamera.setPreviewDisplay(mHolder);
-			Log.e(TAG, "=====2======");
+			
+			
+			MainActivity main_activity = (MainActivity)Preview.this.getContext();
+			mCamera.setPreviewCallback(new StreamIt(main_activity, Preview.this));
 			mCamera.startPreview();
-			Log.e(TAG, "=====3======");
-			//mCamera.setPreviewCallback(new StreamIt(isRecording));
+
 			isPreview = true;
 			this.setWillNotDraw(false);
 		} catch (IOException e) {
@@ -168,14 +290,14 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		// empty. Take care of releasing the Camera preview in your activity.
-		Log.e(TAG, "==========surface destroy");
-		Log.e(TAG, "==========surface destroy");
-		Log.e(TAG, "==========surface destroy");
+
 		if (mCamera != null) {
 			if (isPreview) {
+				
 				mCamera.stopPreview();
 				isPreview = false;
 			}
+			mCamera.setPreviewCallback(null);
 			mCamera.release();
 			mCamera = null; // 记得释放
 		}
@@ -184,8 +306,6 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 	}
 
 	public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-		// If your preview can change or rotate, take care of those events here.
-		// Make sure to stop the preview before resizing or reformatting it.
 
 		if (mHolder.getSurface() == null) {
 			// preview surface does not exist
@@ -199,12 +319,12 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 			// ignore: tried to stop a non-existent preview
 		}
 		setPreviewSize();
-		// set preview size and make any resize, rotate or
-		// reformatting changes here
 
 		// start preview with new settings
 		try {
 			 mCamera.setPreviewDisplay(mHolder);
+			 MainActivity main_activity = (MainActivity)Preview.this.getContext();
+			 mCamera.setPreviewCallback(new StreamIt(main_activity,Preview.this));
 			 mCamera.startPreview();
 			 isPreview = true;
 
@@ -218,13 +338,131 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		// TODO Auto-generated method stub
 
 	}
+	
+	class Acc{
+		public float x;
+		public float y;
+		public float z;
+		
+		public Acc(float x, float y, float z){
+			this.x = x;
+			this.z = z;
+			this.y = y;
+		}
+		
+		public void setX(float x){
+			this.x = x;
+		}
+		public void setY(float y){
+			this.y = y;
+		}
+		public void setZ(float z){
+			this.z = z;
+		}
+	}
+	
+	public Queue<Acc> acc_queue = new LinkedList<Acc>();;
 
 	@Override
 	public void onSensorChanged(SensorEvent event) {
+		
 		// TODO Auto-generated method stub
-		a_x = event.values[0];
-		a_y = event.values[1];
-		a_z = event.values[2];
+		if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+			accelerometer_x = event.values[0];
+			accelerometer_y = event.values[1];
+			accelerometer_z = event.values[2];
+			
+//			if(acc_n < 600){
+//				Acc acc = new Acc(accelerometer_x,accelerometer_y,accelerometer_z);
+//				acc_queue.add(acc);
+//			}else if(acc_n == 600){
+//				Acc acc = acc_queue.remove();
+//				acc.setX(accelerometer_x);
+//				acc.setY(accelerometer_y);
+//				acc.setZ(accelerometer_z);
+//				acc_queue.add(acc);
+//				acc_n--;
+//			}
+//			
+//			this.acc_n++;
+			
+		}else if(event.sensor.getType() == Sensor.TYPE_GRAVITY){
+			gravity_x = event.values[0];
+			gravity_y = event.values[1];
+			gravity_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE){
+			gyroscope_x = event.values[0];
+			gyroscope_y = event.values[1];
+			gyroscope_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD){
+			magnetic_x = event.values[0];
+			magnetic_y = event.values[1];
+			magnetic_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION){
+			linear_acceleration_x = event.values[0];
+			linear_acceleration_y = event.values[1];
+			linear_acceleration_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_ORIENTATION){
+			orientation_x = event.values[0];
+			orientation_y = event.values[1];
+			orientation_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED){
+			ungyroscope_x = event.values[0];
+			ungyroscope_y = event.values[1];
+			ungyroscope_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED){
+			unmagnetic_x = event.values[0];
+			unmagnetic_y = event.values[1];
+			unmagnetic_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR){
+			rotation_x = event.values[0];
+			rotation_y = event.values[1];
+			rotation_z = event.values[2];
+		}else if(event.sensor.getType() == Sensor.TYPE_GAME_ROTATION_VECTOR){
+			gamerotation_x = event.values[0];
+			gamerotation_y = event.values[1];
+			gamerotation_z = event.values[2];
+		}
+		
+		if(isSavingPreview || isRecording){
+			
+			if(sensorFile == null){
+				MainActivity main_activity = (MainActivity)Preview.this.getContext();
+				sensorFile = main_activity.getOutputMediaFile(main_activity.MEDIA_TYPE_SENSOR);
+				
+				if(!sensorFile.exists()){
+						try {
+							sensorFile.createNewFile();
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+				
+				}
+			}
+			
+			String sensor_values = null;
+			FileWriter fileWritter;
+			try {
+				String nowtime = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+				sensor_values = nowtime + "_accelerometer("+accelerometer_x+", "+accelerometer_y+", "+accelerometer_z+")\r\n";
+				sensor_values += nowtime + "_gravity("+gravity_x+", "+gravity_y+", "+gravity_z+")\r\n";
+				sensor_values += nowtime + "_gyroscope("+gyroscope_x+", "+gyroscope_y+", "+gyroscope_z+")\r\n";
+				sensor_values += nowtime + "_magnetic("+magnetic_x+", "+magnetic_y+", "+magnetic_z+")\r\n";
+				sensor_values += nowtime + "_linear_acceleration("+linear_acceleration_x+", "+linear_acceleration_y+", "+linear_acceleration_z+")\r\n";
+				sensor_values += nowtime + "_orientation("+orientation_x+", "+orientation_y+", "+orientation_z+")\r\n";
+				sensor_values += nowtime + "_rotation("+rotation_x+", "+rotation_y+", "+rotation_z+")\r\n\r\n";
+				fileWritter = new FileWriter(sensorFile.getAbsolutePath(),true);
+				BufferedWriter bufferWritter = new BufferedWriter(fileWritter);
+		        bufferWritter.write(sensor_values);
+		        bufferWritter.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+	        
+		}
+		
 		
 		this.invalidate();
 		//this.showToast(null, "x:" + x + "y:" + y + "z:" + z);
@@ -250,16 +488,13 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 				paint.setColor(Color.rgb(75, 75, 75));
 				paint.setShadowLayer(1, 0, 1, Color.BLACK);
 				paint.getTextBounds(text, 0, text.length(), bounds);
-				/*
-				 * if( MyDebug.LOG ) { Log.d(TAG, "bounds: " + bounds); }
-				 */
+
 				final int padding = (int) (14 * scale + 0.5f); // convert dps to
 																// pixels
 				final int offset_y = (int) (32 * scale + 0.5f); // convert dps
 																// to pixels
 				canvas.save();
-				// canvas.rotate(ui_rotation, canvas.getWidth()/2,
-				// canvas.getHeight()/2);
+
 				canvas.drawRect(canvas.getWidth() / 2 - bounds.width() / 2
 						+ bounds.left - padding, canvas.getHeight() / 2
 						+ bounds.top - padding + offset_y, canvas.getWidth()
@@ -278,9 +513,7 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		if (clear_toast != null)
 			clear_toast.cancel();
 		Activity activity = (Activity) this.getContext();
-		// clear_toast = Toast.makeText(activity.getApplicationContext(),
-		// message, Toast.LENGTH_SHORT);
-		// clear_toast.show();
+
 
 		clear_toast = new Toast(activity);
 		View text = new RotatedTextView(message, activity);
@@ -292,6 +525,11 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 	}
 
 	public void setFocus(String focus_value) {
+		
+		if(isRecording){
+			return;
+		}
+		
 		if (MyDebug.LOG)
 			Log.d(TAG, "setFocus() " + focus_value);
 		Camera.Parameters parameters = mCamera.getParameters();
@@ -318,6 +556,7 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 	}
 
 	private void tryAutoFocus() {
+
 		if (MyDebug.LOG)
 			Log.d(TAG, "tryAutoFocus");
 		if (mCamera == null) {
@@ -374,14 +613,6 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
     		if( MyDebug.LOG )
     			Log.d(TAG, "new preview size: " + parameters.getPreviewSize().width + ", " + parameters.getPreviewSize().height);
 
-    		/*List<int []> fps_ranges = parameters.getSupportedPreviewFpsRange();
-    		if( MyDebug.LOG ) {
-		        for(int [] fps_range : fps_ranges) {
-	    			Log.d(TAG, "    supported fps range: " + fps_range[Camera.Parameters.PREVIEW_FPS_MIN_INDEX] + " to " + fps_range[Camera.Parameters.PREVIEW_FPS_MAX_INDEX]);
-		        }
-    		}
-    		int [] fps_range = fps_ranges.get(fps_ranges.size()-1);
-	        parameters.setPreviewFpsRange(fps_range[Camera.Parameters.PREVIEW_FPS_MIN_INDEX], fps_range[Camera.Parameters.PREVIEW_FPS_MAX_INDEX]);*/
     		mCamera.setParameters(parameters);
         }
 	}
@@ -393,8 +624,9 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		try {
 			mCamera = Camera.open();
 			mCamera.setPreviewDisplay(mHolder);
-//			mCamera.setPreviewCallback(new StreamIt(isRecording));
-//			mCamera.startPreview();
+			MainActivity main_activity = (MainActivity)Preview.this.getContext();
+			mCamera.setPreviewCallback(new StreamIt(main_activity, Preview.this));
+			mCamera.startPreview();
 			isPreview = true;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -402,58 +634,168 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
     }
 
     public void onPause() {
-		if( MyDebug.LOG )
-			Log.d(TAG, "onPause");
-
-		if (mCamera != null) {
-			if (isPreview) {
-				mCamera.stopPreview();
-				isPreview = false;
-			}
-			mCamera.release();
-			mCamera = null; // 记得释放
-		}
+//		if (mCamera != null) {
+//			if (isPreview) {
+//				//mCamera.setPreviewCallback(null);
+//				mCamera.stopPreview();
+//				isPreview = false;
+//			}
+//			mCamera.release();
+//			mCamera = null; // 记得释放
+//		}
     }
+
+    
+    public void takePhoto(){
+		if(isRecording){
+			return;
+		}
+    	mCamera.takePicture(shutterCallback, null, jpegCallback);
+    }
+    
+    ShutterCallback shutterCallback = new ShutterCallback() {
+		public void onShutter() {
+			// Log.d(TAG, "onShutter'd");
+		}
+	};
+
+	PictureCallback jpegCallback = new PictureCallback() {
+		public void onPictureTaken(byte[] data, Camera camera) {
+			FileOutputStream outStream = null;
+			try {
+				// Write to SD Card
+				MainActivity main_activity = (MainActivity)Preview.this.getContext();
+				File picFile = main_activity.getOutputMediaFile(main_activity.MEDIA_TYPE_PHOTO);
+				String picName = picFile.getAbsolutePath();
+				
+				FileOutputStream outputStream = new FileOutputStream(picFile);
+				
+				outputStream.write(data);
+				outputStream.close();
+				Log.d(TAG, "onPictureTaken - wrote bytes: " + data.length);
+				
+				
+				String sensorFileName = picName.replace("jpg", "txt");
+                FileOutputStream sensorStream = new FileOutputStream(sensorFileName); 
+                String sensorValues = "accelerometer:\r\n" + 
+                		"x=" + Preview.this.accelerometer_x + "\r\n" +
+                		"y=" + Preview.this.accelerometer_y + "\r\n" +
+                		"z=" + Preview.this.accelerometer_z + "\r\n";
+                 sensorValues += "\r\ngravity:\r\n" + 
+                		"x=" + Preview.this.gravity_x + "\r\n" +
+                		"y=" + Preview.this.gravity_y + "\r\n" +
+                		"z=" + Preview.this.gravity_z + "\r\n";
+                 sensorValues += "\r\ngyroscope:\r\n" + 
+                 		"x=" + Preview.this.gyroscope_x + "\r\n" +
+                 		"y=" + Preview.this.gyroscope_y + "\r\n" +
+                 		"z=" + Preview.this.gyroscope_z + "\r\n";
+                 sensorValues += "\r\nmagnetic:\r\n" + 
+                  		"x=" + Preview.this.magnetic_x + "\r\n" +
+                  		"y=" + Preview.this.magnetic_y + "\r\n" +
+                  		"z=" + Preview.this.magnetic_z + "\r\n";
+                 sensorValues += "\r\nlinear acceleration:\r\n" + 
+                   		"x=" + Preview.this.linear_acceleration_x + "\r\n" +
+                   		"y=" + Preview.this.linear_acceleration_y + "\r\n" +
+                   		"z=" + Preview.this.linear_acceleration_z + "\r\n";
+                 sensorValues += "\r\norientation:\r\n" + 
+                    		"x=" + Preview.this.orientation_x + "\r\n" +
+                    		"y=" + Preview.this.orientation_y + "\r\n" +
+                    		"z=" + Preview.this.orientation_z + "\r\n";  
+                 sensorValues += "\r\nrotation vector:\r\n" + 
+                  		"x=" + Preview.this.rotation_x + "\r\n" +
+                  		"y=" + Preview.this.rotation_y + "\r\n" +
+                  		"z=" + Preview.this.rotation_z + "\r\n"; 
+                
+                 
+                byte [] bytes = sensorValues.getBytes(); 
+                
+                sensorStream.write(bytes);
+                sensorStream.close();
+				
+
+				mCamera.startPreview();
+
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			} finally {
+			}
+			Log.d(TAG, "onPictureTaken - jpeg");
+		}
+	};
+	
 }
 
 class StreamIt implements Camera.PreviewCallback {
-	private String TAG = "PreviewCallback";
-	private boolean isRecording;
-	public StreamIt(boolean isRecording){
-		this.isRecording = isRecording;
+	static private int i=0;
+	private MainActivity mActivity;
+	private Preview mPreview;
+	public StreamIt(MainActivity activity, Preview preview){
+		this.mActivity = activity;
+		this.mPreview = preview;
 	}
 	
-	
-	public void onPreviewFrame(byte[] data, Camera camera) {
-
-		// 刚刚拍照的文件名
-		if (true) {
-
-			String fileName = "IMG_"
-					+ new SimpleDateFormat("yyyyMMdd_HHmmss")
-							.format(new Date()).toString() + ".jpg";
-			File sdRoot = Environment.getExternalStorageDirectory();
-			String dir = "/DCIM/";
-			File mkDir = new File(sdRoot, dir);
-			if (!mkDir.exists())
-				mkDir.mkdirs();
-			File pictureFile = new File(sdRoot, dir + fileName);
-			if (!pictureFile.exists()) {
-				try {
-					pictureFile.createNewFile();
-					Camera.Parameters parameters = camera.getParameters();
-					Size size = parameters.getPreviewSize();
-					YuvImage image = new YuvImage(data,
-							parameters.getPreviewFormat(), size.width,
-							size.height, null);
-					FileOutputStream filecon = new FileOutputStream(pictureFile);
-					image.compressToJpeg(
-							new Rect(0, 0, image.getWidth(), image.getHeight()),
-							90, filecon);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-	}
+    @Override
+    public void onPreviewFrame(byte[] data, Camera camera) {   
+        
+    	if(this.mPreview.isSavingPreview && !this.mPreview.isRecording){
+	        Size size = camera.getParameters().getPreviewSize();          
+	        try{ 
+	            YuvImage image = new YuvImage(data, ImageFormat.NV21, size.width, size.height, null);  
+	            if(image!=null){
+	            	ByteArrayOutputStream bytestream = new ByteArrayOutputStream();
+	            	
+	                image.compressToJpeg(new Rect(0, 0, size.width, size.height), 80, bytestream); 
+	                
+					File picFile = this.mActivity.getOutputMediaFile(this.mActivity.MEDIA_TYPE_FRAME);
+					String picName = picFile.getAbsolutePath();
+	                
+	                FileOutputStream picStream = new FileOutputStream(picFile);           
+	                picStream.write(bytestream.toByteArray());
+	                picStream.close();
+	                
+	                String sensorFileName = picName.replace("jpg", "txt");
+	                FileOutputStream sensorStream = new FileOutputStream(sensorFileName); 
+	                String sensorValues = "accelerometer:\r\n" + 
+	                		"x=" + this.mPreview.accelerometer_x + "\r\n" +
+	                		"y=" + this.mPreview.accelerometer_y + "\r\n" +
+	                		"z=" + this.mPreview.accelerometer_z + "\r\n";
+	                 sensorValues += "\r\ngravity:\r\n" + 
+	                		"x=" + this.mPreview.gravity_x + "\r\n" +
+	                		"y=" + this.mPreview.gravity_y + "\r\n" +
+	                		"z=" + this.mPreview.gravity_z + "\r\n";
+	                 sensorValues += "\r\ngyroscope:\r\n" + 
+	                 		"x=" + this.mPreview.gyroscope_x + "\r\n" +
+	                 		"y=" + this.mPreview.gyroscope_y + "\r\n" +
+	                 		"z=" + this.mPreview.gyroscope_z + "\r\n";
+	                 sensorValues += "\r\nmagnetic:\r\n" + 
+	                  		"x=" + this.mPreview.magnetic_x + "\r\n" +
+	                  		"y=" + this.mPreview.magnetic_y + "\r\n" +
+	                  		"z=" + this.mPreview.magnetic_z + "\r\n";
+	                 sensorValues += "\r\nlinear acceleration:\r\n" + 
+	                   		"x=" + this.mPreview.linear_acceleration_x + "\r\n" +
+	                   		"y=" + this.mPreview.linear_acceleration_y + "\r\n" +
+	                   		"z=" + this.mPreview.linear_acceleration_z + "\r\n";
+	                 sensorValues += "\r\norientation:\r\n" + 
+	                    		"x=" + this.mPreview.orientation_x + "\r\n" +
+	                    		"y=" + this.mPreview.orientation_y + "\r\n" +
+	                    		"z=" + this.mPreview.orientation_z + "\r\n";  
+	                 sensorValues += "\r\nrotation vector:\r\n" + 
+	                  		"x=" + this.mPreview.rotation_x + "\r\n" +
+	                  		"y=" + this.mPreview.rotation_y + "\r\n" +
+	                  		"z=" + this.mPreview.rotation_z + "\r\n"; 
+	                
+	                 
+	                byte [] bytes = sensorValues.getBytes(); 
+	                
+	                sensorStream.write(bytes);
+	                sensorStream.close();             
+	            }  
+	        
+	        }catch(Exception ex){  
+	            Log.e("Sys","Error:"+ex.getMessage());  
+	        }    
+    	}
+    }
 }

@@ -3,24 +3,23 @@ package com.cloud.cam;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -39,13 +38,36 @@ public class MainActivity extends Activity {
     private boolean isRecording = false;
     private SensorManager mSensorManager = null;
 	private Sensor mSensorAccelerometer = null;
-	
+	private Sensor mSensorGravity = null;
+	private Sensor mSensorGyroscope = null;
+	private Sensor mSensorLineAcceleration = null;
+	private Sensor mSensormegnetic = null;
+	private Sensor mOrientation = null;
+	private Sensor mUngyroscope = null;
+	private Sensor mUnmegnetic = null;
+	private Sensor mRotation = null;
+	private Sensor mGameRotation = null;
+		
 	private PopupWindow popupWindow;
 	private LinearLayout layout;
 	private ListView listView;
     
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
+    public static final int MEDIA_TYPE_FRAME = 3;
+    public static final int MEDIA_TYPE_PHOTO = 4;
+    public static final int MEDIA_TYPE_SENSOR = 5;
+    private static int nFrame = 1;
+    private static String lastTime = null;
+    private static boolean isFirstTime = true;
+    private File framesDir = null;
+    private File photosDir = null;
+    private File sensorsDir = null;
+    private File videosDir = null;
+    
+    public LayoutInflater inflater = null ;
+    public SettingWindow settingWindow = null;
+    
 
 
 	@Override
@@ -54,7 +76,6 @@ public class MainActivity extends Activity {
 		
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-//		getWindow().setFormat(PixelFormat.TRANSLUCENT);
 		
 		setContentView(R.layout.activity_main);
 		
@@ -67,6 +88,71 @@ public class MainActivity extends Activity {
 		else {
 				Log.e(TAG, "no support for accelerometer");
 		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY) != null ) {
+			Log.e(TAG, "found Gravity");
+			mSensorGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null ) {
+			Log.e(TAG, "found Gravity");
+			mSensorGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION) != null ) {
+			Log.e(TAG, "found Gravity");
+			mSensorLineAcceleration = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null ) {
+			Log.e(TAG, "found Gravity");
+			mSensormegnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION) != null ) {
+			Log.e(TAG, "found Gravity");
+			mOrientation = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE_UNCALIBRATED) != null ) {
+			Log.e(TAG, "found Gravity");
+			mUngyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE_UNCALIBRATED);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE_UNCALIBRATED) != null ) {
+			Log.e(TAG, "found Gravity");
+			mUnmegnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE_UNCALIBRATED);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null ) {
+			Log.e(TAG, "found Gravity");
+			mRotation = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR) != null ) {
+			Log.e(TAG, "found Gravity");
+			mGameRotation = mSensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
+		}
+		else {
+				Log.e(TAG, "no support for Gravity");
+		}
+		
 		
         // Create our Preview view and set it as the content of our activity.
         mPreview = new Preview(this, savedInstanceState);
@@ -74,6 +160,8 @@ public class MainActivity extends Activity {
         preview.addView(mPreview);
         
         mSetting = (ImageButton) findViewById(R.id.setting);
+        inflater = (LayoutInflater) this.getSystemService(LAYOUT_INFLATER_SERVICE);
+        settingWindow = new SettingWindow();
         
 	}
 	
@@ -82,7 +170,37 @@ public class MainActivity extends Activity {
 		if( MyDebug.LOG )
 			Log.d(TAG, "onResume");
         super.onResume();
-        mSensorManager.registerListener(this.mPreview, mSensorAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        if(mSensorAccelerometer != null){
+        	mSensorManager.registerListener(this.mPreview, mSensorAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mSensorGravity != null){
+        	mSensorManager.registerListener(this.mPreview, mSensorGravity, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mSensorGyroscope!= null){
+        	mSensorManager.registerListener(this.mPreview, mSensorGyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mSensorLineAcceleration!= null){
+        	mSensorManager.registerListener(this.mPreview, mSensorLineAcceleration, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mSensormegnetic!= null){
+        	mSensorManager.registerListener(this.mPreview, mSensormegnetic, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mOrientation!= null){
+        	mSensorManager.registerListener(this.mPreview, mOrientation, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mUngyroscope!= null){
+        	mSensorManager.registerListener(this.mPreview, mUngyroscope, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mUnmegnetic!= null){
+        	mSensorManager.registerListener(this.mPreview, mUnmegnetic, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mRotation!= null){
+        	mSensorManager.registerListener(this.mPreview, mRotation, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        if(mGameRotation!= null){
+        	mSensorManager.registerListener(this.mPreview, mGameRotation, SensorManager.SENSOR_DELAY_NORMAL);
+        }
+        
         this.mPreview.onResume();
     }
 
@@ -93,6 +211,7 @@ public class MainActivity extends Activity {
         super.onPause();
         mSensorManager.unregisterListener(this.mPreview);
         this.mPreview.onPause();
+        this.isFirstTime = true;
     }
 	
 //    @Override
@@ -103,37 +222,21 @@ public class MainActivity extends Activity {
 //        mSensorManager.unregisterListener(this.mPreview); 
 //        
 //    }
-    
-    public void showSettingWindow(int x, int y) {
-//    	layout = (LinearLayout) LayoutInflater.from(MainActivity.this).inflate(
-//				R.layout.dialog, null);
-//		listView = (ListView) layout.findViewById(R.id.lv_dialog);
-//		listView.setAdapter(new ArrayAdapter<String>(MainActivity.this,
-//				R.layout.text, R.id.tv_text, title));
-
-		popupWindow = new PopupWindow(MainActivity.this);
-		popupWindow.setBackgroundDrawable(new BitmapDrawable());
-		popupWindow
-				.setWidth(getWindowManager().getDefaultDisplay().getWidth() / 2);
-		popupWindow.setHeight(300);
-		popupWindow.setOutsideTouchable(true);
-		popupWindow.setFocusable(true);
-		popupWindow.setContentView(layout);
-		// showAsDropDown会把里面的view作为参照物，所以要那满屏幕parent
-		// popupWindow.showAsDropDown(findViewById(R.id.tv_title), x, 10);
-//		popupWindow.showAtLocation(findViewById(R.id.activity_main), Gravity.LEFT
-//				| Gravity.TOP, x, y);
-    }
+   
 	public void onClickedRecordVideo(View view){
 		this.mPreview.videoRecorder();
 	}
 
 	public void onClickedSetting(View view){
-		showSettingWindow(100,100);
+		settingWindow.onClickedBtn(this);
 	}
 
 	public void onClickedAutoFocus(View view){
 		this.mPreview.setFocus("focus_mode_auto");
+	}
+	
+	public void onClickedTakePhoto(View view){
+		this.mPreview.takePhoto();
 	}
 	
 	public void onClickedVideoShow(View view) {
@@ -147,22 +250,20 @@ public class MainActivity extends Activity {
 	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(mediaStorageDir)));
         }
 		
-		
 		Intent intent = new Intent();
 		intent.putExtra("path", videoPath);
 //		intent.setClass(this, FileShow.class);
 		this.startActivity(intent);
 	}
 	
+	public void onClickedSavePreview(View view){
+		this.mPreview.savePreviewAndSensors();
+	}
+	
 	public File getOutputMediaFile(int type){
-        // To be safe, you should check that the SDCard is mounted
-        // using Environment.getExternalStorageState() before doing this.
 
     	File mediaStorageDir = new File("/sdcard/DCIM/cloudcam");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
-
-        // Create the storage directory if it does not exist
+    	
         if( !mediaStorageDir.exists() ) {
             if( !mediaStorageDir.mkdirs() ) {
         		if( MyDebug.LOG )
@@ -171,27 +272,92 @@ public class MainActivity extends Activity {
             }
 	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(mediaStorageDir)));
         }
+        
+        if(isFirstTime){
+        	String starttime = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        	framesDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/frames");
+        	photosDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/photos");
+        	sensorsDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/sensors");
+        	videosDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/videos");
+        	
+        	if( !framesDir.exists() ) {
+                if( !framesDir.mkdirs() ) {
+            		if( MyDebug.LOG )
+            			Log.e(TAG, "failed to create frames directory");
+                    return null;
+                }
+    	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(framesDir)));
+            }
+        	
+        	if( !photosDir.exists() ) {
+                if( !photosDir.mkdirs() ) {
+            		if( MyDebug.LOG )
+            			Log.e(TAG, "failed to create frames directory");
+                    return null;
+                }
+    	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(photosDir)));
+            }
+        	
+        	if( !sensorsDir.exists() ) {
+                if( !sensorsDir.mkdirs() ) {
+            		if( MyDebug.LOG )
+            			Log.e(TAG, "failed to create frames directory");
+                    return null;
+                }
+    	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(sensorsDir)));
+            }
+        	
+        	if( !videosDir.exists() ) {
+                if( !videosDir.mkdirs() ) {
+            		if( MyDebug.LOG )
+            			Log.e(TAG, "failed to create frames directory");
+                    return null;
+                }
+    	        this.sendBroadcast(new Intent(Intent.ACTION_MEDIA_MOUNTED, Uri.fromFile(videosDir)));
+            }
+        	
+        	isFirstTime = false;
+        }
 
         // Create a media file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        if(timeStamp.equals(lastTime)){
+        	nFrame++;
+        }else{
+        	nFrame=1;
+        }
         File mediaFile;
         if( type == MEDIA_TYPE_IMAGE ) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator +
             "IMG_"+ timeStamp + ".jpg");
         }
         else if( type == MEDIA_TYPE_VIDEO ) {
-            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
-            "VID_"+ timeStamp + ".mp4");
+            mediaFile = new File(videosDir.getPath() + File.separator +
+            "VID_"+ timeStamp +  ".mp4");
+        }
+        else if(type == MEDIA_TYPE_FRAME){
+        	mediaFile = new File(framesDir.getPath() + File.separator +
+                    "IMG_"+ timeStamp + "_" + nFrame + ".jpg");
+        }
+        else if (type == MEDIA_TYPE_PHOTO){
+        	mediaFile = new File(photosDir.getPath() + File.separator +
+                    "IMG_"+ timeStamp + ".jpg");
+        }
+        else if (type == MEDIA_TYPE_SENSOR){
+        	mediaFile = new File(sensorsDir.getPath() + File.separator +
+                    "sensors_values.txt");
         }
         else {
             return null;
         }
 
 		if( MyDebug.LOG ) {
+			Log.d(TAG, "TYPE returns: " + type);
 			Log.d(TAG, "getOutputMediaFile returns: " + mediaFile);
 		}
+		lastTime = timeStamp;
         return mediaFile;
     }
-    
-
 }
+
+
