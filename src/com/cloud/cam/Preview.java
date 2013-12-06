@@ -95,7 +95,6 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 	public float gamerotation_y;
 	public float gamerotation_z;
 	
-	
 	public Preview(Context context, Bundle savedInstanceState) {
 		super(context);
 		mCamera = Camera.open();
@@ -122,6 +121,15 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 		}else{
 			isSavingPreview = false;
 			view.setImageResource(isSavingPreview ? R.drawable.saving : R.drawable.gallery);	
+			
+			//write fifo to tell sendthread to send media
+			MainActivity main_activity = (MainActivity)Preview.this.getContext();
+			try {
+				main_activity.pos.write(1);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -152,6 +160,13 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 			MainActivity main_activity = (MainActivity)Preview.this.getContext();
 			File videoFile = main_activity.getOutputMediaFile(main_activity.MEDIA_TYPE_VIDEO);
 			String videoName = videoFile.getAbsolutePath();
+			
+			//push file to queue for sendthread
+			try{
+				main_activity.queue.put(videoFile);
+			}catch (Exception e) {
+	            e.printStackTrace();
+	        }
 
 			mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
 			mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
@@ -192,6 +207,10 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,Senso
 				mCamera.setPreviewCallback(new StreamIt(main_activity, Preview.this));
 				mCamera.startPreview();
 				isPreview = true;
+				
+				//write the fifo to start send media file
+				main_activity.pos.write(1);
+				
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -790,7 +809,13 @@ class StreamIt implements Camera.PreviewCallback {
 	                byte [] bytes = sensorValues.getBytes(); 
 	                
 	                sensorStream.write(bytes);
-	                sensorStream.close();             
+	                sensorStream.close();     
+	                
+	                try{
+	                	this.mActivity.queue.put(picName);
+	    			}catch (Exception e) {
+	    	            e.printStackTrace();
+	    	        }
 	            }  
 	        
 	        }catch(Exception ex){  

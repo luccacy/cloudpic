@@ -2,12 +2,15 @@ package com.cloud.cam;
 
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
@@ -17,7 +20,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -68,8 +70,11 @@ public class MainActivity extends Activity {
     public LayoutInflater inflater = null ;
     public SettingWindow settingWindow = null;
     
-
-
+    public SendThread sendThread = null;
+    public PipedOutputStream pos = null;
+    public PipedInputStream pis = null;
+    public BlockingQueue queue = null;
+    
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -162,6 +167,18 @@ public class MainActivity extends Activity {
         mSetting = (ImageButton) findViewById(R.id.setting);
         inflater = (LayoutInflater) this.getSystemService(LAYOUT_INFLATER_SERVICE);
         settingWindow = new SettingWindow();
+        
+        //create send media thread
+        pos = new PipedOutputStream();
+        pis = new PipedInputStream();
+        queue = new ArrayBlockingQueue(1);
+        try {
+            pis.connect(pos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        sendThread = new SendThread(pis, queue);
+        sendThread.start();
         
 	}
 	
