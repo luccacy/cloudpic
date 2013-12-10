@@ -11,6 +11,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.BlockingQueue;
@@ -19,36 +21,59 @@ import java.util.zip.CheckedInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
+import android.util.Log;
 
 public class SendThread extends Thread{
 	
-	private PipedInputStream pis;
-    private BlockingQueue queue;
+	private String TAG = "SendThread";
+	private PipedInputStream pis_send;
+    private BlockingQueue queue_send;
+	private PipedOutputStream pos_recv;
+    private BlockingQueue queue_recv;
+    private boolean stopped = false;
+    
+    HttpURLConnection conn = null;
+    private String urlPath = null;
+    private String container_name = "container_test";
+    private String object_name = null;
 
-    public SendThread(PipedInputStream pis, BlockingQueue queue) {
-        this.pis = pis;
-        this.queue = queue;
+    public SendThread(PipedInputStream pis_send, BlockingQueue queue_send,
+    		PipedOutputStream pos_recv, BlockingQueue queue_recv) {
+        this.pis_send = pis_send;
+        this.queue_send = queue_send;
+        this.pos_recv = pos_recv;
+        this.queue_recv = queue_recv;
     }
 
     public void run() {
         try {
-            while(true)
+            while(!stopped)
             {
-            	System.out.println("read fifo:"+pis.read());
-				System.out.println("queue file:"+queue.take());
+            	if(pis_send.read() == 0){
+            		stopped = true;
+            	}
 				
-				String filePath = (String)queue.take();
+				String filePath = (String)queue_send.take();
 				String destZipPath = filePath + ".zip";
+				
+				Log.e(TAG, "filepath : " + filePath + "zip filepath : " + destZipPath);
 				
 				ZipUtil zipUtil = new ZipUtil();
 				try {  
 					zipUtil.compressedFile(filePath, destZipPath);
+					Thread.sleep(2000);
 				}catch (Exception e) {  
 		            System.out.println("failed to compress...");  
 		            e.printStackTrace();  
 		        }  
-			
+		
+				initConn(filePath);
 				sendFile(destZipPath);
+				closeConn();
+				
+				this.queue_recv.add(filePath);
+				pos_recv.write(1);
+				
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -58,18 +83,34 @@ public class SendThread extends Thread{
 		}
     }
     
-    private void sendFile(String filePath){
-		String urlPath = "http://10.12.13.11:7878/1/2/3/4";
-		File file = new File(filePath);
-		
-		try{
+    private void initConn(String filePath){
+    	String [] splitFilePath = filePath.split("\\/");
+    	this.object_name = splitFilePath[splitFilePath.length - 1];
+    	
+    	urlPath = Conf.admin_url + "/" + this.container_name + "/" + this.object_name;
+		try {
 			URL url = new URL(urlPath);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("POST");
 			conn.setReadTimeout(5 * 1000);
 			conn.setDoOutput(true); // 发送POST请求， 必须设置允许输出
 			conn.setUseCaches(false);
 			
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    }
+    
+    private void closeConn(){
+    	conn.disconnect();
+    }
+    
+    private void sendFile(String filePath){
+		File file = new File(filePath);
+		
+		try{
 			conn.setRequestProperty("Content-Type", "application/octet-stream");
 			conn.setRequestProperty("Transfer-Encoding", "chunked");
 			conn.setRequestProperty("x-image-meta-size", ""+file.length());
@@ -103,208 +144,15 @@ public class SendThread extends Thread{
 			int responseCode = conn.getResponseCode();
 			
 			if (responseCode != 200) {
-				throw new RuntimeException("请求url失败");
+				Log.e(TAG, "http response code not equil 200");
 			}
 			
-			conn.disconnect();
-			
+		}catch(ConnectException e){
+			Log.e(TAG, "connect refused");
 		}catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
     }
-    
-    private void getFile(String filePath){
-    	
-    	String urlPath = "http://10.12.13.11:7878/1/2/3/4";
-		try {
-			URL url = new URL(urlPath);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
-			conn.setReadTimeout(5 * 1000);
-			conn.setDoOutput(true); // 发送POST请求， 必须设置允许输出
-			conn.setUseCaches(false);
-
-			InputStream inStream = conn.getInputStream();
-
-			File file = new File(filePath);
-			OutputStream out = new FileOutputStream(file);
-			int len = 0;
-			byte[] data = new byte[1024];
-			while ((len = inStream.read(data, 0, 1024)) != -1) {
-				out.write(data, 0, len);
-			}
-
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    }
-    
-    private void getStatus(String filePath){
-    	String urlPath = "http://10.12.13.11:7878/1/2/3/4";
-		try {
-			URL url = new URL(urlPath);
-			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-			conn.setRequestMethod("GET");
-			conn.setReadTimeout(5 * 1000);
-			conn.setDoOutput(true); // 发送POST请求， 必须设置允许输出
-			conn.setUseCaches(false);
-			StringBuilder str = new StringBuilder();
-			/****/
-			InputStream inStream = conn.getInputStream();
-			BufferedReader reader = new BufferedReader(new InputStreamReader(
-					inStream));
-			str.append(reader.readLine());
-			System.out.println(str.toString());
-//			JSONObject obj = JSONObject.fromObject(str.toString());
-//			String status = obj.getString("status");
-//			System.out.println(status);
-			// File file = new File("test.png");
-			// OutputStream out = new FileOutputStream(file);
-			// int len = 0;
-			// byte[] data = new byte[1024];
-			// while ((len = inStream.read(data, 0, 1024)) != -1) {
-			// out.write(data, 0, len);
-			// }
-
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    }
-
 }
 
-class ZipUtil{
-	private static final int BUFFER = 1024;  
-	
-	public ZipUtil(){    
-    } 
-	
-	public void compressedFile(String resourcesPath,String targetPath) throws Exception{  
-        File resourcesFile = new File(resourcesPath);       
-        File targetFile = new File(targetPath);                 
-          
-        FileOutputStream outputStream = new FileOutputStream(targetPath);  
-        ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(outputStream));  
-          
-        createCompressedFile(out, resourcesFile, "");           
-        out.close();    
-    }
-	
-	public void createCompressedFile(ZipOutputStream out,File file,String dir) throws Exception{  
-         
-        if(file.isDirectory()){  
-            
-            File[] files = file.listFiles();  
-            
-            out.putNextEntry(new ZipEntry(dir+"/"));                
-            dir = dir.length() == 0 ? "" : dir +"/";  
-                    
-            for(int i = 0 ; i < files.length ; i++){  
-                createCompressedFile(out, files[i], dir + files[i].getName());        
-            }  
-        }  
-        else{   
-            
-            FileInputStream fis = new FileInputStream(file);  
-              
-            out.putNextEntry(new ZipEntry(dir));  
-            
-            int j =  0;  
-            byte[] buffer = new byte[1024];  
-            while((j = fis.read(buffer)) > 0){  
-                out.write(buffer,0,j);  
-            }  
-            
-            fis.close();  
-        }  
-    }
-	
-	public static void decompress(File srcFile, File destFile) throws Exception {  
-	      
-        CheckedInputStream cis = new CheckedInputStream(new FileInputStream(  
-                srcFile), new CRC32());  
-  
-        ZipInputStream zis = new ZipInputStream(cis);  
-  
-        decompress(destFile, zis);  
-  
-        zis.close();  
-  
-    }
-	
-	public static void decompress(String srcPath, String destPath)  
-            throws Exception {  
-  
-        File srcFile = new File(srcPath);  
-        File destFile = new File(destPath);  
-        decompress(srcFile, destFile);  
-    }
-	
-	private static void decompress(File destFile, ZipInputStream zis)  
-            throws Exception {  
-  
-        ZipEntry entry = null;  
-        while ((entry = zis.getNextEntry()) != null) {  
-  
-            // 文件  
-            String dir = destFile.getPath() + File.separator + entry.getName();  
-  
-            File dirFile = new File(dir);  
-  
-            // 文件检查  
-            fileProber(dirFile);  
-  
-            if (entry.isDirectory()) {  
-                dirFile.mkdirs();  
-            } else {  
-                decompressFile(dirFile, zis);  
-            }  
-  
-            zis.closeEntry();  
-        }  
-    }  
-	
-	private static void fileProber(File dirFile) {  
-	      
-        File parentFile = dirFile.getParentFile();  
-        if (!parentFile.exists()) {  
-  
-            // 递归寻找上级目录  
-            fileProber(parentFile);  
-  
-            parentFile.mkdir();  
-        }  
-  
-    } 
-	
-	private static void decompressFile(File destFile, ZipInputStream zis)  
-            throws Exception {  
-  
-        BufferedOutputStream bos = new BufferedOutputStream(  
-                new FileOutputStream(destFile));  
-  
-        int count;  
-        byte data[] = new byte[BUFFER];  
-        while ((count = zis.read(data, 0, BUFFER)) != -1) {  
-            bos.write(data, 0, count);  
-        }  
-  
-        bos.close();  
-    }  
-	
-	public void test(){  
-		ZipUtil compressedFileUtil = new ZipUtil();  
-          
-        try {  
-            compressedFileUtil.compressedFile("e:\\update4.1", "e:\\update4.1.zip");  
-            compressedFileUtil.decompress("e:/update4.1.zip", "d:/update4.1");
-            System.out.println("begin zip compress...");  
-        } catch (Exception e) {  
-            System.out.println("failed to compress...");  
-            e.printStackTrace();  
-        }  
-    }
-}

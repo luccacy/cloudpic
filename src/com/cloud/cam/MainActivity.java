@@ -33,6 +33,17 @@ class MyDebug {
 	static final boolean LOG = true;
 }
 
+class Conf{
+	static final String server_ip = "192.168.1.112";
+	static final String server_port = "7878";
+	static final String version = "v1";
+	static final String server_url = "http://" + server_ip + ":" + server_port + "/" + version;
+	static final String account = "admin";
+	static final String admin_url = server_url + "/" + account;
+	
+	static final String mediaDir = "/sdcard/DCIM/cloudcam";
+}
+
 public class MainActivity extends Activity {
 	private final String TAG = "MainActivity";
     private Preview mPreview;
@@ -61,19 +72,26 @@ public class MainActivity extends Activity {
     public static final int MEDIA_TYPE_SENSOR = 5;
     private static int nFrame = 1;
     private static String lastTime = null;
-    private static boolean isFirstTime = true;
+    
     private File framesDir = null;
     private File photosDir = null;
     private File sensorsDir = null;
     private File videosDir = null;
+    public String cacheDir = null;
+    public boolean isFirstTime = true;
     
     public LayoutInflater inflater = null ;
     public SettingWindow settingWindow = null;
     
     public SendThread sendThread = null;
-    public PipedOutputStream pos = null;
-    public PipedInputStream pis = null;
-    public BlockingQueue queue = null;
+    public PipedOutputStream pos_send = null;
+    public PipedInputStream pis_send = null;
+    public BlockingQueue queue_send = null;
+    
+    public RecvThread recvThread = null;
+    public PipedOutputStream pos_recv = null;
+    public PipedInputStream pis_recv = null;
+    public BlockingQueue queue_recv = null;
     
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -169,16 +187,31 @@ public class MainActivity extends Activity {
         settingWindow = new SettingWindow();
         
         //create send media thread
-        pos = new PipedOutputStream();
-        pis = new PipedInputStream();
-        queue = new ArrayBlockingQueue(1);
+        pos_send = new PipedOutputStream();
+        pis_send = new PipedInputStream();
+        queue_send = new ArrayBlockingQueue(1);
+        
+        pos_recv = new PipedOutputStream();
+        pis_recv = new PipedInputStream();
+        queue_recv = new ArrayBlockingQueue(1);
         try {
-            pis.connect(pos);
+            pis_send.connect(pos_send);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        sendThread = new SendThread(pis, queue);
+        
+        sendThread = new SendThread(pis_send, queue_send, pos_recv, queue_recv);
         sendThread.start();
+        
+
+        try {
+            pis_recv.connect(pos_recv);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        recvThread = new RecvThread(pis_recv, queue_recv);
+        recvThread.start();
         
 	}
 	
@@ -187,6 +220,7 @@ public class MainActivity extends Activity {
 		if( MyDebug.LOG )
 			Log.d(TAG, "onResume");
         super.onResume();
+        
         if(mSensorAccelerometer != null){
         	mSensorManager.registerListener(this.mPreview, mSensorAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
         }
@@ -229,6 +263,14 @@ public class MainActivity extends Activity {
         mSensorManager.unregisterListener(this.mPreview);
         this.mPreview.onPause();
         this.isFirstTime = true;
+        
+        try {
+			this.pos_send.write(0);
+			this.pos_recv.write(0);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 	
 //    @Override
@@ -296,6 +338,7 @@ public class MainActivity extends Activity {
         	photosDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/photos");
         	sensorsDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/sensors");
         	videosDir = new File("/sdcard/DCIM/cloudcam/" + starttime + "/videos");
+        	cacheDir = "/sdcard/DCIM/cloudcam/" + starttime;
         	
         	if( !framesDir.exists() ) {
                 if( !framesDir.mkdirs() ) {
