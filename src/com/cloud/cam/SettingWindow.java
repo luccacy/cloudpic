@@ -36,14 +36,7 @@ public class SettingWindow {
 	private ImageButton SettingBtn;
 	private HashMap<Integer, Integer> map = new HashMap<Integer, Integer>();
 	
-	public static final int GYROSCOPE=1;
-	public static final int ACCELEROMETER=2;
-	public static final int GRAVITY=3;
-	public static final int MAGNETIC=4;
-	public static final int ORIENTATION=5;
-	public static final int ROTATION=6;
-	public static final int ACCELERRATION=7;
-	public int chosenSensorType=2;
+	private Sensors mSensors = Sensors.getInstance();
 	
 	public SettingWindow(){
 		
@@ -68,21 +61,21 @@ public class SettingWindow {
                             map.put(arg2, 100);
                                 
                                 if(list[arg2].equals("gyroscope")){
-                                	chosenSensorType=GYROSCOPE;
+                                	mSensors.chosenSensorType=mSensors.GYROSCOPE;
                                 }else if(list[arg2].equals("accelerometer")){
-                                	chosenSensorType=ACCELEROMETER;
+                                	mSensors.chosenSensorType=mSensors.ACCELEROMETER;
                                 }else if(list[arg2].equals("gravity")){
-                                	chosenSensorType=GRAVITY;
+                                	mSensors.chosenSensorType=mSensors.GRAVITY;
                                 }else if(list[arg2].equals("magnetic")){
-                                	chosenSensorType=MAGNETIC;
+                                	mSensors.chosenSensorType=mSensors.MAGNETIC;
                                 }else if(list[arg2].equals("orientation")){
-                                	chosenSensorType=ORIENTATION;
+                                	mSensors.chosenSensorType=mSensors.ORIENTATION;
                                 }else if(list[arg2].equals("rotation")){
-                                	chosenSensorType=ROTATION;
+                                	mSensors.chosenSensorType=mSensors.ROTATION;
                                 }else if(list[arg2].equals("linear_acceleration")){
-                                	chosenSensorType=ACCELERRATION;
+                                	mSensors.chosenSensorType=mSensors.ACCELERRATION;
                                 }else{
-                                	chosenSensorType=-1;
+                                	mSensors.chosenSensorType=-1;
                                 }
                                 adapter.notifyDataSetChanged();
                         }

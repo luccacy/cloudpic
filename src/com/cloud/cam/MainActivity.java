@@ -34,7 +34,7 @@ class MyDebug {
 }
 
 class Conf{
-	static final String server_ip = "192.168.1.112";
+	static final String server_ip = "159.226.179.51";
 	static final String server_port = "7878";
 	static final String version = "v1";
 	static final String server_url = "http://" + server_ip + ":" + server_port + "/" + version;
@@ -42,6 +42,8 @@ class Conf{
 	static final String admin_url = server_url + "/" + account;
 	
 	static final String mediaDir = "/sdcard/DCIM/cloudcam";
+	
+	static final boolean enableCoordinate = true;
 }
 
 public class MainActivity extends Activity {
@@ -60,6 +62,7 @@ public class MainActivity extends Activity {
 	private Sensor mUnmegnetic = null;
 	private Sensor mRotation = null;
 	private Sensor mGameRotation = null;
+	private Sensors mSensors = Sensors.getInstance();
 		
 	private PopupWindow popupWindow;
 	private LinearLayout layout;
@@ -107,6 +110,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null ) {
 				Log.e(TAG, "found accelerometer");
 			mSensorAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+			mSensors.setMaxAcc(mSensorAccelerometer.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for accelerometer");
@@ -114,6 +118,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY) != null ) {
 			Log.e(TAG, "found Gravity");
 			mSensorGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
+			mSensors.setMaxGra(mSensorGravity.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");
@@ -121,6 +126,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null ) {
 			Log.e(TAG, "found Gravity");
 			mSensorGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+			mSensors.setMaxGyr(mSensorGyroscope.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");
@@ -128,6 +134,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION) != null ) {
 			Log.e(TAG, "found Gravity");
 			mSensorLineAcceleration = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+			mSensors.setMaxAccel(mSensorLineAcceleration.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");
@@ -135,6 +142,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null ) {
 			Log.e(TAG, "found Gravity");
 			mSensormegnetic = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+			mSensors.setMaxMag(mSensormegnetic.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");
@@ -143,6 +151,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION) != null ) {
 			Log.e(TAG, "found Gravity");
 			mOrientation = mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+			mSensors.setMaxOri(mOrientation.getMaximumRange()/2);
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");
@@ -164,6 +173,7 @@ public class MainActivity extends Activity {
 		if( mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) != null ) {
 			Log.e(TAG, "found Gravity");
 			mRotation = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+			mSensors.setMaxRot(mRotation.getMaximumRange());
 		}
 		else {
 				Log.e(TAG, "no support for Gravity");

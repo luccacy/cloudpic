@@ -36,6 +36,7 @@ public class SendThread extends Thread{
     private String urlPath = null;
     private String container_name = "container_test";
     private String object_name = null;
+    private final int CHUNKSIZE = 10 * 1024;
 
     public SendThread(PipedInputStream pis_send, BlockingQueue queue_send,
     		PipedOutputStream pos_recv, BlockingQueue queue_recv) {
@@ -68,9 +69,12 @@ public class SendThread extends Thread{
 		        }  
 		
 				initConn(filePath);
-				sendFile(destZipPath);
+				if(sendFile(destZipPath) < 0){
+					Log.e(TAG, "failed to send file");
+					closeConn();
+					continue;
+				}
 				closeConn();
-				
 				this.queue_recv.add(filePath);
 				pos_recv.write(1);
 				
@@ -95,6 +99,7 @@ public class SendThread extends Thread{
 			conn.setReadTimeout(5 * 1000);
 			conn.setDoOutput(true); // 发送POST请求， 必须设置允许输出
 			conn.setUseCaches(false);
+			conn.setChunkedStreamingMode(CHUNKSIZE);
 			
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -107,7 +112,7 @@ public class SendThread extends Thread{
     	conn.disconnect();
     }
     
-    private void sendFile(String filePath){
+    private int sendFile(String filePath){
 		File file = new File(filePath);
 		
 		try{
@@ -121,13 +126,13 @@ public class SendThread extends Thread{
 			
 			InputStream inStream = new FileInputStream(file);
 			
-			byte[] buffer =new byte[10 *1024];
+			byte[] buffer =new byte[CHUNKSIZE];
 			int rlen = 0;
 			
 			int nlen = (int) file.length();
 			while(nlen > 0){
-				if(nlen >= 10*1024){			
-					rlen = inStream.read(buffer, 0, 10*1024);
+				if(nlen >= CHUNKSIZE){			
+					rlen = inStream.read(buffer, 0, CHUNKSIZE);
 					outStream.write(buffer);
 					nlen = nlen - rlen;
 				}else{
@@ -146,12 +151,14 @@ public class SendThread extends Thread{
 			if (responseCode != 200) {
 				Log.e(TAG, "http response code not equil 200");
 			}
-			
+			return 0;
 		}catch(ConnectException e){
 			Log.e(TAG, "connect refused");
+			return -1;
 		}catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return -1;
 		}
     }
 }

@@ -53,8 +53,9 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 	private Paint paint = new Paint();
 
 	private File sensorFile = null;
+	private Sensors mSensors = Sensors.getInstance();
 
-	public int MAX_POINTS = 200;
+	public int MAX_POINTS = mSensors.MAX_POINTS;
 	public float accelerometer_x;
 	public float accelerometer_y;
 	public float accelerometer_z;
@@ -63,22 +64,27 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 	public float gravity_x;
 	public float gravity_y;
 	public float gravity_z;
+	private static int gra_n = 0;
 
 	public float gyroscope_x;
 	public float gyroscope_y;
 	public float gyroscope_z;
+	private static int gyr_n = 0;
 
 	public float magnetic_x;
 	public float magnetic_y;
 	public float magnetic_z;
+	private static int mag_n = 0;
 
 	public float linear_acceleration_x;
 	public float linear_acceleration_y;
 	public float linear_acceleration_z;
+	private static int lacc_n = 0;
 
 	public float orientation_x;
 	public float orientation_y;
 	public float orientation_z;
+	private static int ori_n = 0;
 
 	public float ungyroscope_x;
 	public float ungyroscope_y;
@@ -91,6 +97,7 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 	public float rotation_x;
 	public float rotation_y;
 	public float rotation_z;
+	private static int rot_n = 0;
 
 	public float gamerotation_x;
 	public float gamerotation_y;
@@ -245,82 +252,41 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 
 		String sensor_values = null;
 
-		MainActivity main_activity = (MainActivity) Preview.this.getContext();
-		if (main_activity.settingWindow.chosenSensorType == 1) {
-			sensor_values = "gyroscope(" + gyroscope_x + ", " + gyroscope_y
-					+ ", " + gyroscope_z + ")";
-		} else if (main_activity.settingWindow.chosenSensorType == 2) {
-			sensor_values = "accelerometer(" + accelerometer_x + ", "
-					+ accelerometer_y + ", " + accelerometer_z + ")";
-		} else if (main_activity.settingWindow.chosenSensorType == 3) {
-			sensor_values = "gravity(" + gravity_x + ", " + gravity_y + ", "
-					+ gravity_z + ")";
-
-		} else if (main_activity.settingWindow.chosenSensorType == 4) {
-			sensor_values = "magnetic(" + magnetic_x + ", " + magnetic_y + ", "
-					+ magnetic_z + ")";
-
-		} else if (main_activity.settingWindow.chosenSensorType == 7) {
-			sensor_values = "linear_acceleration(" + linear_acceleration_x
-					+ ", " + linear_acceleration_y + ", "
-					+ linear_acceleration_z + ")";
-
-		} else if (main_activity.settingWindow.chosenSensorType == 5) {
-			sensor_values = "rotation(" + rotation_x + ", " + rotation_y + ", "
-					+ rotation_z + ")";
-
-		} else if (main_activity.settingWindow.chosenSensorType == 6) {
-			sensor_values = "orientation(" + orientation_x + ", "
-					+ orientation_y + ", " + orientation_z + ")";
-
-		} else {
-			sensor_values = "invalid sensor type";
-		}
-
-//		canvas.drawText(sensor_values, canvas.getWidth() / 3,
-//				canvas.getHeight() / 5, paint);
-		
-		int zero_x = canvas.getWidth() / 2;
-		int zero_y = canvas.getHeight() / 4;
-		int R = MAX_POINTS / 2;
-		int i = 0;
-		canvas.drawLine(zero_x - R, zero_y, zero_x + R, zero_y, paint);
-		canvas.drawLine(zero_x, zero_y - R, zero_x, zero_y + R, paint);
-		paint.setStrokeWidth(3);
-
-		// draw line
-//		if (main_activity.settingWindow.chosenSensorType == 2) {
-//			// draw x line
-//			if (this.acc_n > 0) {
-//				int starty_x = zero_y
-//						- (int) (this.acc_queue.peek().x / 9.8 * (R / 2));
-//				int starty_y = zero_y
-//						- (int) (this.acc_queue.peek().y / 9.8 * (R / 2));
-//				int starty_z = zero_y
-//						- (int) (this.acc_queue.peek().z / 9.8 * (R / 2));
-//				int startx = zero_x + R - this.acc_n;
+//		MainActivity main_activity = (MainActivity) Preview.this.getContext();
+//		if (mSensors.chosenSensorType==mSensors.GYROSCOPE) {
+//			sensor_values = "gyroscope(" + gyroscope_x + ", " + gyroscope_y
+//					+ ", " + gyroscope_z + ")";
+//		} else if (mSensors.chosenSensorType==mSensors.ACCELEROMETER) {
+//			sensor_values = "accelerometer(" + accelerometer_x + ", "
+//					+ accelerometer_y + ", " + accelerometer_z + ")";
+//		} else if (mSensors.chosenSensorType==mSensors.GRAVITY) {
+//			sensor_values = "gravity(" + gravity_x + ", " + gravity_y + ", "
+//					+ gravity_z + ")";
 //
-//				if (this.acc_n <= 200) {
-//					for (Acc acc : this.acc_queue) {
-//						int endx = zero_x + R - this.acc_n + i;
-//						int endy_x = (int) (zero_y - (float) ((R / 2) * (acc.x / 9.8)));
-//						int endy_y = (int) (zero_y - (float) ((R / 2) * (acc.y / 9.8)));
-//						int endy_z = (int) (zero_y - (float) ((R / 2) * (acc.z / 9.8)));
-//						paint.setColor(Color.WHITE);
-//						canvas.drawLine(startx, starty_x, endx, endy_x, paint);
-//						paint.setColor(Color.GREEN);
-//						canvas.drawLine(startx, starty_y, endx, endy_y, paint);
-//						paint.setColor(Color.RED);
-//						canvas.drawLine(startx, starty_z, endx, endy_z, paint);
-//						startx = endx;
-//						starty_x = endy_x;
-//						starty_y = endy_y;
-//						starty_z = endy_z;
-//						i++;
-//					}
-//				}
-//			}
+//		} else if (mSensors.chosenSensorType==mSensors.MAGNETIC) {
+//			sensor_values = "magnetic(" + magnetic_x + ", " + magnetic_y + ", "
+//					+ magnetic_z + ")";
+//
+//		} else if (mSensors.chosenSensorType==mSensors.ACCELERRATION) {
+//			sensor_values = "linear_acceleration(" + linear_acceleration_x
+//					+ ", " + linear_acceleration_y + ", "
+//					+ linear_acceleration_z + ")";
+//
+//		} else if (mSensors.chosenSensorType==mSensors.ROTATION) {
+//			sensor_values = "rotation(" + rotation_x + ", " + rotation_y + ", "
+//					+ rotation_z + ")";
+//
+//		} else if (mSensors.chosenSensorType==mSensors.ORIENTATION) {
+//			sensor_values = "orientation(" + orientation_x + ", "
+//					+ orientation_y + ", " + orientation_z + ")";
+//
+//		} else {
+//			sensor_values = "invalid sensor type";
 //		}
+		
+		if(Conf.enableCoordinate){
+			mSensors.draw(canvas);
+		}
 
 		canvas.restore();
 	}
@@ -398,34 +364,7 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 		// TODO Auto-generated method stub
 
 	}
-
-	class Acc {
-		public float x;
-		public float y;
-		public float z;
-		public int num;
-
-		public Acc(float x, float y, float z) {
-			this.x = x;
-			this.z = z;
-			this.y = y;
-		}
-
-		public void setX(float x) {
-			this.x = x;
-		}
-
-		public void setY(float y) {
-			this.y = y;
-		}
-
-		public void setZ(float z) {
-			this.z = z;
-		}
-	}
-
-	public Queue<Acc> acc_queue = new LinkedList<Acc>();;
-
+	
 	@Override
 	public void onSensorChanged(SensorEvent event) {
 
@@ -435,15 +374,15 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 			accelerometer_z = event.values[2];
 
 			if (acc_n < MAX_POINTS) {
-				Acc acc = new Acc(accelerometer_x, accelerometer_y,
+				SensorValue acc = new SensorValue(accelerometer_x, accelerometer_y,
 						accelerometer_z);
-				acc_queue.add(acc);
+				mSensors.acc_queue.add(acc);
 			} else if (acc_n == MAX_POINTS) {
-				Acc acc = acc_queue.remove();
+				SensorValue acc = mSensors.acc_queue.remove();
 				acc.setX(accelerometer_x);
 				acc.setY(accelerometer_y);
 				acc.setZ(accelerometer_z);
-				acc_queue.add(acc);
+				mSensors.acc_queue.add(acc);
 				this.acc_n--;
 			}
 
@@ -453,22 +392,102 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 			gravity_x = event.values[0];
 			gravity_y = event.values[1];
 			gravity_z = event.values[2];
+			
+			if (gra_n < MAX_POINTS) {
+				SensorValue gra = new SensorValue(gravity_x, gravity_y,
+						gravity_z);
+				mSensors.gra_queue.add(gra);
+			} else if (gra_n == MAX_POINTS) {
+				SensorValue gra = mSensors.gra_queue.remove();
+				gra.setX(gravity_x);
+				gra.setY(gravity_y);
+				gra.setZ(gravity_z);
+				mSensors.gra_queue.add(gra);
+				this.gra_n--;
+			}
+
+			this.gra_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
 			gyroscope_x = event.values[0];
 			gyroscope_y = event.values[1];
 			gyroscope_z = event.values[2];
+			
+			if (gyr_n < MAX_POINTS) {
+				SensorValue gyr = new SensorValue(gyroscope_x, gyroscope_y,
+						gyroscope_z);
+				mSensors.gyr_queue.add(gyr);
+			} else if (gyr_n == MAX_POINTS) {
+				SensorValue gra = mSensors.gyr_queue.remove();
+				gra.setX(gyroscope_x);
+				gra.setY(gyroscope_y);
+				gra.setZ(gyroscope_z);
+				mSensors.gyr_queue.add(gra);
+				this.gyr_n--;
+			}
+
+			this.gyr_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
 			magnetic_x = event.values[0];
 			magnetic_y = event.values[1];
 			magnetic_z = event.values[2];
+			
+			if (mag_n < MAX_POINTS) {
+				SensorValue mag = new SensorValue(magnetic_x, magnetic_y,
+						magnetic_z);
+				mSensors.mag_queue.add(mag);
+			} else if (mag_n == MAX_POINTS) {
+				SensorValue mag = mSensors.mag_queue.remove();
+				mag.setX(magnetic_x);
+				mag.setY(magnetic_y);
+				mag.setZ(magnetic_z);
+				mSensors.mag_queue.add(mag);
+				this.mag_n--;
+			}
+
+			this.mag_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
 			linear_acceleration_x = event.values[0];
 			linear_acceleration_y = event.values[1];
 			linear_acceleration_z = event.values[2];
+			
+			if (lacc_n < MAX_POINTS) {
+				SensorValue lacc = new SensorValue(linear_acceleration_x, linear_acceleration_y,
+						linear_acceleration_z);
+				mSensors.accel_queue.add(lacc);
+			} else if (lacc_n == MAX_POINTS) {
+				SensorValue lacc = mSensors.accel_queue.remove();
+				lacc.setX(linear_acceleration_x);
+				lacc.setY(linear_acceleration_y);
+				lacc.setZ(linear_acceleration_z);
+				mSensors.accel_queue.add(lacc);
+				this.lacc_n--;
+			}
+
+			this.lacc_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_ORIENTATION) {
 			orientation_x = event.values[0];
 			orientation_y = event.values[1];
 			orientation_z = event.values[2];
+			
+			if (ori_n < MAX_POINTS) {
+				SensorValue ori = new SensorValue(orientation_x, orientation_y,
+						orientation_z);
+				mSensors.ori_queue.add(ori);
+			} else if (ori_n == MAX_POINTS) {
+				SensorValue ori = mSensors.ori_queue.remove();
+				ori.setX(orientation_x);
+				ori.setY(orientation_y);
+				ori.setZ(orientation_z);
+				mSensors.ori_queue.add(ori);
+				this.ori_n--;
+			}
+
+			this.ori_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE_UNCALIBRATED) {
 			ungyroscope_x = event.values[0];
 			ungyroscope_y = event.values[1];
@@ -481,13 +500,29 @@ public class Preview extends SurfaceView implements SurfaceHolder.Callback,
 			rotation_x = event.values[0];
 			rotation_y = event.values[1];
 			rotation_z = event.values[2];
+			
+			if (rot_n < MAX_POINTS) {
+				SensorValue rot = new SensorValue(rotation_x, rotation_y,
+						rotation_z);
+				mSensors.rot_queue.add(rot);
+			} else if (ori_n == MAX_POINTS) {
+				SensorValue rot = mSensors.rot_queue.remove();
+				rot.setX(rotation_x);
+				rot.setY(rotation_y);
+				rot.setZ(rotation_z);
+				mSensors.rot_queue.add(rot);
+				this.rot_n--;
+			}
+
+			this.rot_n++;
+			
 		} else if (event.sensor.getType() == Sensor.TYPE_GAME_ROTATION_VECTOR) {
 			gamerotation_x = event.values[0];
 			gamerotation_y = event.values[1];
 			gamerotation_z = event.values[2];
 		}
 
-		if (isSavingPreview || isRecording) {
+		if (isSavingPreview || isRecording ) {
 
 			if (sensorFile == null) {
 				MainActivity main_activity = (MainActivity) Preview.this

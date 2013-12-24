@@ -25,21 +25,23 @@ public class RecvThread extends Thread{
     private String object_name = null;
     
     private boolean stopped = false;
+    private boolean ready = false;
     private static int ntimes = 0;
 
     private final String HTTP_PUT = "PUT";
     private final String HTTP_GET = "GET";
+    private final int CHUNKSIZE = 10 * 1024;
+    
     public RecvThread(PipedInputStream pis_recv, BlockingQueue queue_recv) {
         this.pis_recv = pis_recv;
         this.queue_recv = queue_recv;
-        this.container_name = "test_container";
+        this.container_name = "container_test";
     }
 
     public void run() {
         try {
             while(!stopped)
             {
-            	Log.d(TAG, "read fifo:"+this.pis_recv.read());
             	if(pis_recv.read() == 0){
             		stopped = true;
             	}
@@ -52,20 +54,30 @@ public class RecvThread extends Thread{
 			
 				initConn(filePath, HTTP_PUT);
 				while(true){
-					if(getServerStatus().equals("ready") || ntimes >= 3){
+					if(getServerStatus().equals("ready") ){
 						ntimes = 0;
+						ready = true;
 						break;
+					}else if(ntimes >= 3){
+						ntimes = 0;
+						ready = false;
 					}else{
 						ntimes++;
 						Thread.sleep(3000);
 					}
 					
 				}
+				closeConn();
+				if(ready){
+					initConn(filePath, HTTP_GET);
+					if(recvFile(resultZipPath) < 0){
+						Log.e(TAG, "failed to recv file");
+					}
+					closeConn();
+				}else{
+					continue;
+				}
 				
-				closeConn();
-				initConn(filePath, HTTP_GET);
-				recvFile(resultZipPath);
-				closeConn();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -97,29 +109,31 @@ public class RecvThread extends Thread{
     }
     
     
-    private void recvFile(String filePath){
+    private int recvFile(String filePath){
 		try {
 			InputStream inStream = conn.getInputStream();
 
 			File file = new File(filePath);
 			OutputStream out = new FileOutputStream(file);
 			int len = 0;
-			byte[] data = new byte[1024];
-			while ((len = inStream.read(data, 0, 1024)) != -1) {
+			byte[] data = new byte[CHUNKSIZE];
+			while ((len = inStream.read(data, 0, CHUNKSIZE)) != -1) {
 				out.write(data, 0, len);
 			}
 
+			return 0;
 		} catch(ConnectException e){
 			Log.e(TAG, "recvFile connect refused");
+			return -1;
 		}catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			return -1;
 		}
     }
 
     private String getServerStatus(){
     	StringBuilder str = new StringBuilder();
-    	
 		try {
 			InputStream inStream = conn.getInputStream();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(
